@@ -74,3 +74,23 @@ Kotlin + Jetpack Compose + Room + MVVM，单 Activity + Navigation Compose，纯
 - 五个源的实际 pubDate 全是 RFC 1123 变体，`DateTimeFormatter.RFC_1123_DATE_TIME` 全覆盖
 - arXiv 单次返回 321 条，已在 `RssMapper.MAX_ITEMS_PER_FETCH` 限制为 60
 
+---
+
+## GitHub（已配置，勿再索要 token）
+
+- 仓库：`https://github.com/dadi829/ai-rss-reader`（public，默认分支 main）
+- 版本标记：tag `v1.0.0`
+- 凭据持久化位置（**token 不写进本文件，避免入库**）：
+  - `~/.git-credentials` + `git config --global credential.helper store`
+  - 用户级环境变量 `GITHUB_TOKEN` / `GH_TOKEN`
+- 日常只需要 `git push` / `git pull`，不再询问凭据
+- token 失效时：去 GitHub 重新生成 classic PAT（repo 权限），
+  覆盖 `~/.git-credentials` 里那一行和两个环境变量即可
+
+### 明确不要的东西
+
+- **不要 GitHub Actions / CI**：用户只要本地编译 + 推拉代码。
+  曾经加过 `.github/workflows/android-ci.yml`，已删除（`setup-android` 步骤失败，且无必要）
+- 不要发布脚本 `scripts/publish_github.py`
+
+
