@@ -32,3 +32,8 @@ keystore.properties
 
 # 日志
 *.log
+
+# Python（发布脚本）
+__pycache__/
+*.pyc
+*.pyo
