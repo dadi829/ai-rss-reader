@@ -15,16 +15,18 @@ import java.util.concurrent.TimeUnit
  *
  * 说明：
  * 1. 解析交给 rssparser（Kotlin 实现，支持 RSS 2.0 / Atom / RDF），不手写 XML；
- * 2. 自定义 OkHttpClient 的原因——部分源会拒绝默认 UA，
- *    且移动网络下默认 10s 超时偏短，这里放宽到 20s / 总 30s；
+ * 2. 自定义 OkHttpClient 的原因——部分源会拒绝默认 UA；
+ *    超时按「移动网络 + 可能被墙的海外源」调过：
+ *    连接 12s（够用，且不会让不可达的源把批量刷新拖到一分钟以上），
+ *    读取 20s（部分源单次返回 400KB），整体 25s 封顶；
  * 3. 本类无任何定时器或后台线程，只有被显式调用时才发起请求。
  */
 class RssService {
 
     private val httpClient: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(20, TimeUnit.SECONDS)
+        .connectTimeout(12, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
-        .callTimeout(30, TimeUnit.SECONDS)
+        .callTimeout(25, TimeUnit.SECONDS)
         .followRedirects(true)
         .followSslRedirects(true)
         .retryOnConnectionFailure(true)

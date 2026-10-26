@@ -21,15 +21,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import com.example.airssreader.core.state.FeedSelection
 import com.example.airssreader.domain.model.Feed
 import com.example.airssreader.ui.theme.Dimens
 import com.example.airssreader.ui.theme.appColors
+import com.example.airssreader.ui.theme.sourceColorFor
 
 /**
  * 源切换条。
  *
+ * 第一项固定是「全部」聚合视图，后面才是各个源。
+ * 这个顺序是有意的：默认选中项在最左侧，用户打开就能看到所有源的最新内容，
+ * 想只看某一个源再往右滑，不需要先理解「这里能切换」。
+ *
  * 用横向滚动的文字 tab 而不是下拉菜单：
- * 源数量有限（默认 6 个），一屏内左右滑即可切换，比多一层弹窗快。
+ * 源数量有限（默认 8 个），左右滑比多一层弹窗快。
  *
  * 选中态用「主色文字 + 底部 2dp 指示线」，不用胶囊背景，
  * 避免整条看起来像一排按钮。
@@ -37,7 +43,8 @@ import com.example.airssreader.ui.theme.appColors
 @Composable
 fun SourceTabRow(
     feeds: List<Feed>,
-    selectedFeedId: Long?,
+    selectedFeedId: Long,
+    totalUnreadCount: Int,
     onSelect: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -46,10 +53,22 @@ fun SourceTabRow(
         contentPadding = PaddingValues(horizontal = Dimens.PageHorizontal),
         horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceXS),
     ) {
+        item(key = "all-feeds") {
+            SourceTab(
+                title = "全部",
+                unreadCount = totalUnreadCount,
+                selected = selectedFeedId == FeedSelection.ALL_FEED_ID,
+                accentColor = MaterialTheme.colorScheme.primary,
+                onClick = { onSelect(FeedSelection.ALL_FEED_ID) },
+            )
+        }
+
         items(feeds, key = { it.id }) { feed ->
             SourceTab(
-                feed = feed,
+                title = feed.title,
+                unreadCount = feed.unreadCount,
                 selected = feed.id == selectedFeedId,
+                accentColor = sourceColorFor(feed.id),
                 onClick = { onSelect(feed.id) },
             )
         }
@@ -58,11 +77,12 @@ fun SourceTabRow(
 
 @Composable
 private fun SourceTab(
-    feed: Feed,
+    title: String,
+    unreadCount: Int,
     selected: Boolean,
+    accentColor: Color,
     onClick: () -> Unit,
 ) {
-    val indicatorColor = MaterialTheme.colorScheme.primary
     val textColor = if (selected) {
         MaterialTheme.colorScheme.primary
     } else {
@@ -80,16 +100,29 @@ private fun SourceTab(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            // 未选中时用小色点标记「这是哪个源」，与列表卡片的源标识色对应
+            if (!selected) {
+                Spacer(
+                    Modifier
+                        .width(Dimens.SourceDot)
+                        .height(Dimens.SourceDot)
+                        .clip(RoundedCornerShape(Dimens.SourceDot))
+                        .background(accentColor),
+                )
+                Spacer(Modifier.width(Dimens.SpaceXS))
+            }
+
             Text(
-                text = feed.title,
+                text = title,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
                 color = textColor,
                 maxLines = 1,
             )
-            if (feed.unreadCount > 0) {
+
+            if (unreadCount > 0) {
                 Spacer(Modifier.width(Dimens.SpaceXS))
-                UnreadBadge(count = feed.unreadCount, selected = selected)
+                UnreadBadge(count = unreadCount, selected = selected)
             }
         }
 
@@ -99,7 +132,7 @@ private fun SourceTab(
                 .padding(top = Dimens.SpaceXS)
                 .width(Dimens.TabIndicatorWidth)
                 .height(Dimens.StrokeThick)
-                .background(if (selected) indicatorColor else Color.Transparent),
+                .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent),
         )
     }
 }

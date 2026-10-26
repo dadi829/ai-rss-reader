@@ -11,8 +11,13 @@ import com.example.airssreader.domain.model.Feed
 import com.prof18.rssparser.exception.HttpException
 import com.prof18.rssparser.exception.RssParsingException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
@@ -30,6 +35,20 @@ sealed interface RefreshResult {
     data class Success(val newItemCount: Int, val totalItemCount: Int) : RefreshResult
     data class Failure(val message: String) : RefreshResult
 }
+
+/**
+ * 批量刷新结果。
+ *
+ * 刻意不做成「全成功 / 全失败」：8 个源里挂掉 1 个是常态，
+ * 已经拉到的新内容不该因为一个源失败就被忽略，所以分别记成功数与失败数。
+ */
+data class RefreshAllResult(
+    val feedCount: Int,
+    val successCount: Int,
+    val failedCount: Int,
+    val newItemCount: Int,
+    val firstErrorMessage: String?,
+)
 
 /**
  * 源仓库：源的增删查 + 手动刷新。
@@ -127,29 +146,103 @@ class FeedRepository(
         val feed = feedDao.findById(feedId)
             ?: return RefreshResult.Failure("源不存在，可能已被删除")
 
-        val channel = try {
-            rssService.fetch(feed.url)
+        return try {
+            val newCount = fetchInto(feedId = feed.id, url = feed.url)
+            RefreshResult.Success(
+                newItemCount = newCount,
+                totalItemCount = articleDao.totalCount(),
+            )
         } catch (e: Exception) {
-            return RefreshResult.Failure(e.toUserMessage())
+            RefreshResult.Failure(e.toUserMessage())
+        }
+    }
+
+    /**
+     * 批量刷新全部源。
+     *
+     * 实现要点：
+     * 1. 分块并发而不是一次性 [feeds.size] 个协程——同时打 8 个请求很容易被源站限流，
+     *    这里每块 3 个，块内并发、块间串行；
+     * 2. 单源异常用 runCatching 就地吞掉，一个源失败不影响同块其他源；
+     * 3. 计数用 Mutex 保护：并发协程写同一个 var 不是原子操作，不加锁会丢计数。
+     *
+     * 注意这依然是**用户手动触发**的：只有聚合视图下点刷新或下拉才会走到这里。
+     */
+    suspend fun refreshAll(): RefreshAllResult {
+        val feeds = feedDao.allFeeds()
+        if (feeds.isEmpty()) {
+            return RefreshAllResult(0, 0, 0, 0, null)
         }
 
+        var successCount = 0
+        var failedCount = 0
+        var newItemCount = 0
+        var firstErrorMessage: String? = null
+        val lock = Mutex()
+
+        feeds.chunked(MAX_CONCURRENT_REFRESH).forEach { chunk ->
+            coroutineScope {
+                chunk.map { feed ->
+                    async(Dispatchers.IO) {
+                        val outcome = runCatching { fetchInto(feedId = feed.id, url = feed.url) }
+                        lock.withLock {
+                            outcome
+                                .onSuccess { count ->
+                                    successCount++
+                                    newItemCount += count
+                                }
+                                .onFailure { error ->
+                                    failedCount++
+                                    if (firstErrorMessage == null) {
+                                        firstErrorMessage = error.toUserMessage()
+                                    }
+                                }
+                        }
+                    }
+                }.awaitAll()
+            }
+        }
+
+        return RefreshAllResult(
+            feedCount = feeds.size,
+            successCount = successCount,
+            failedCount = failedCount,
+            newItemCount = newItemCount,
+            firstErrorMessage = firstErrorMessage,
+        )
+    }
+
+    /**
+     * 拉取一个源并入库，返回新增条数。
+     *
+     * 抽出来是因为单源刷新与批量刷新共用同一段逻辑，
+     * 差别只在于异常由谁接住：单源直接翻译成 [RefreshResult.Failure]，
+     * 批量则交给 runCatching 后统一计数。
+     */
+    private suspend fun fetchInto(feedId: Long, url: String): Int {
+        val channel = rssService.fetch(url)
+        // 映射阶段要逐条做 HTML 清洗，放在 Default 线程，避免 60 条一起处理时卡住主线程
         val entities = withContext(Dispatchers.Default) {
             RssMapper.toArticleEntities(feedId = feedId, channel = channel)
         }
         val inserted = articleDao.insertAll(entities)
-        val newCount = inserted.count { it != -1L }
-
         feedDao.updateLastFetchedAt(feedId, System.currentTimeMillis())
-
-        return RefreshResult.Success(
-            newItemCount = newCount,
-            totalItemCount = articleDao.totalCount(),
-        )
+        return inserted.count { it != -1L }
     }
 
     /** 把某个源的全部条目标记为已读 */
     suspend fun markAllRead(feedId: Long) {
         articleDao.markAllRead(feedId)
+    }
+
+    private companion object {
+        /**
+         * 批量刷新的并发上限。
+         *
+         * 取 4 的算法：默认 8 个源刚好两轮跑完；再高意义不大，
+         * 因为瓶颈通常是单个慢源而不是并发度，而并发过高容易被同一源站限流。
+         */
+        const val MAX_CONCURRENT_REFRESH = 4
     }
 }
 
@@ -157,8 +250,9 @@ class FeedRepository(
  * 把网络/解析异常翻译成用户能看懂的一句话。
  *
  * 集中在这里处理，UI 层只负责显示 message。
+ * 接收 [Throwable] 而不是 [Exception]：批量刷新里用 runCatching 拿到的是 Throwable。
  */
-private fun Exception.toUserMessage(): String = when (this) {
+private fun Throwable.toUserMessage(): String = when (this) {
     is UnknownHostException -> "无法解析域名，请检查网络或代理设置"
     is SocketTimeoutException -> "连接超时，请稍后重试"
     is SSLException -> "HTTPS 证书校验失败，该源可能不被信任"

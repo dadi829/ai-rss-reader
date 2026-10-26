@@ -190,7 +190,8 @@ private fun PullPolicyHint(feedCount: Int) {
             color = MaterialTheme.appColors.textPrimary,
         )
         Text(
-            text = "没有任何后台刷新与推送。只有你在资讯流点刷新或下拉时，才会访问网络。",
+            text = "没有任何后台刷新与推送。只有在资讯流点刷新或下拉时才会访问网络——" +
+                "聚合视图下一次刷新全部源，单源视图下只刷新当前源。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.appColors.textTertiary,
             modifier = Modifier.padding(top = Dimens.SpaceXXS),

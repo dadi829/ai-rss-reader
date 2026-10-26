@@ -43,6 +43,10 @@ interface FeedDao {
     @Query("SELECT COUNT(*) FROM feeds")
     suspend fun count(): Int
 
+    /** 批量刷新时一次性取出全部源，避免逐个 findById 产生 N 次查询 */
+    @Query("SELECT * FROM feeds ORDER BY createdAt ASC, id ASC")
+    suspend fun allFeeds(): List<FeedEntity>
+
     /** 冲突时返回 -1，调用方据此判断是否重复添加 */
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(feed: FeedEntity): Long

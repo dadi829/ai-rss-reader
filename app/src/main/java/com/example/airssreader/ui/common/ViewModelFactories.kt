@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.airssreader.di.AppContainer
+import com.example.airssreader.ui.detail.ArticleDetailViewModel
 import com.example.airssreader.ui.feed.FeedViewModel
 import com.example.airssreader.ui.search.SearchViewModel
 import com.example.airssreader.ui.sources.SourcesViewModel
@@ -34,6 +35,22 @@ object ViewModelFactories {
     fun search(container: AppContainer): ViewModelProvider.Factory = viewModelFactory {
         initializer {
             SearchViewModel(articleRepository = container.articleRepository)
+        }
+    }
+
+    /**
+     * 详情页需要额外的 articleId，用工厂把导航参数喂给 ViewModel，
+     * 而不是让页面自己拿参数再传进去——后者会让 ViewModel 无法在配置变更后复用。
+     */
+    fun articleDetail(
+        container: AppContainer,
+        articleId: Long,
+    ): ViewModelProvider.Factory = viewModelFactory {
+        initializer {
+            ArticleDetailViewModel(
+                articleRepository = container.articleRepository,
+                articleId = articleId,
+            )
         }
     }
 }

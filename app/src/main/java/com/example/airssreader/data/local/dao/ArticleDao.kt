@@ -29,6 +29,35 @@ interface ArticleDao {
     fun observeByFeed(feedId: Long): Flow<List<ArticleWithFeed>>
 
     /**
+     * 「全部」聚合时间线：跨所有源按发布时间倒序。
+     *
+     * LIMIT 300 是刻意的取舍：8 个源各缓存 60 条上限已经能到 480 条，
+     * 全部塞进 LazyColumn 会让首帧明显变慢，而 300 条足够覆盖最近两周的内容。
+     */
+    @Query(
+        """
+        SELECT a.*, f.title AS feedTitle
+        FROM articles a
+        INNER JOIN feeds f ON f.id = a.feedId
+        ORDER BY a.publishedAt DESC, a.id DESC
+        LIMIT 300
+        """
+    )
+    fun observeAll(): Flow<List<ArticleWithFeed>>
+
+    /** 详情页按 id 取单条；条目被连带删除时发射 null，页面据此显示「已不存在」 */
+    @Query(
+        """
+        SELECT a.*, f.title AS feedTitle
+        FROM articles a
+        INNER JOIN feeds f ON f.id = a.feedId
+        WHERE a.id = :id
+        LIMIT 1
+        """
+    )
+    fun observeById(id: Long): Flow<ArticleWithFeed?>
+
+    /**
      * 全局搜索：跨所有源，同时匹配标题与摘要。
      *
      * 说明：
@@ -58,6 +87,10 @@ interface ArticleDao {
 
     @Query("UPDATE articles SET isRead = 1 WHERE feedId = :feedId")
     suspend fun markAllRead(feedId: Long)
+
+    /** 聚合视图下的「全部已读」，作用于整张表 */
+    @Query("UPDATE articles SET isRead = 1")
+    suspend fun markAllReadGlobally()
 
     /** 搜索页的空态提示需要展示缓存总量 */
     @Query("SELECT COUNT(*) FROM articles")

@@ -19,6 +19,7 @@ object DateFormatter {
 
     private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.CHINA)
     private val dateTimeFormatter = DateTimeFormatter.ofPattern("MM-dd HH:mm", Locale.CHINA)
+    private val fullDateTimeFormatter = DateTimeFormatter.ofPattern("yyyy年M月d日 HH:mm", Locale.CHINA)
 
     /** 列表用：刚刚 / N 分钟前 / N 小时前 / 昨天 / N 天前 / 具体日期 */
     fun formatRelative(timestamp: Long, now: Long = System.currentTimeMillis()): String {
@@ -40,6 +41,14 @@ object DateFormatter {
 
     fun formatDateTime(timestamp: Long): String =
         Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).format(dateTimeFormatter)
+
+    /** 详情页：列表里用相对时间，正文页需要确切日期 */
+    fun formatFullDateTime(timestamp: Long): String =
+        if (timestamp <= 0L) {
+            "时间未知"
+        } else {
+            Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).format(fullDateTimeFormatter)
+        }
 
     /** 源管理页：从未拉取时给出明确提示，避免显示 1970 年 */
     fun formatLastFetched(timestamp: Long): String =

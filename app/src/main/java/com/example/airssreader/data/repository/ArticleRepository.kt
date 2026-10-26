@@ -19,6 +19,14 @@ class ArticleRepository(
     fun observeByFeed(feedId: Long): Flow<List<Article>> =
         articleDao.observeByFeed(feedId).map { list -> list.map { it.toDomain() } }
 
+    /** 聚合视图：所有源的条目混排，按发布时间倒序 */
+    fun observeAll(): Flow<List<Article>> =
+        articleDao.observeAll().map { list -> list.map { it.toDomain() } }
+
+    /** 详情页：订阅单条记录，已读状态变化会自动推回来 */
+    fun observeById(articleId: Long): Flow<Article?> =
+        articleDao.observeById(articleId).map { it?.toDomain() }
+
     /**
      * 全局搜索：跨所有已缓存的源，匹配标题与摘要。
      *
@@ -34,6 +42,11 @@ class ArticleRepository(
 
     suspend fun markRead(articleId: Long) {
         articleDao.markRead(articleId)
+    }
+
+    /** 聚合视图下的「全部已读」 */
+    suspend fun markAllReadGlobally() {
+        articleDao.markAllReadGlobally()
     }
 
     /**

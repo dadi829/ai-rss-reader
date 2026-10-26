@@ -1,6 +1,7 @@
 package com.example.airssreader.ui.theme
 
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 /**
  * 全局尺寸常量。页面内不出现裸数值，一律引用此处。
@@ -46,6 +47,10 @@ object Dimens {
     val UnreadDot = 6.dp
     val TabIndicatorWidth = 20.dp
     val ListItemMinHeight = 56.dp
+    /** 源标识圆点，与未读点同尺寸，视觉上属于同一套符号 */
+    val SourceDot = 6.dp
+    /** 详情页正文行高：正文比列表摘要更疏，长段落才不挤 */
+    val ReadingLineHeight = 30.sp
 
     // 内容约束
     val ContentMaxWidth = 280.dp

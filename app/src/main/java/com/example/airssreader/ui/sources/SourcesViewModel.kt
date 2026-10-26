@@ -97,7 +97,8 @@ class SourcesViewModel(
         viewModelScope.launch {
             feedRepository.deleteFeed(feed.id)
             if (FeedSelection.selectedFeedId.value == feed.id) {
-                FeedSelection.selectedFeedId.value = null
+                // 删掉的正是当前选中的源，回落到「全部」聚合视图
+                FeedSelection.selectedFeedId.value = FeedSelection.ALL_FEED_ID
             }
             _events.send(SourcesEvent.Message("已删除「${feed.title}」及其缓存"))
         }
