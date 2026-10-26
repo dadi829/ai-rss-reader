@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.view.ViewGroup
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -59,12 +60,16 @@ fun ReaderScreen(
         }
     }
 
-    // 离开页面时释放 WebView，否则它会一直持有 Activity 的 Context
+    // 离开页面时释放 WebView，否则它会一直持有 Activity 的 Context。
+    // 先把它从父容器摘掉再 destroy，避免 Compose 仍在引用一个已销毁的 View。
     DisposableEffect(Unit) {
         onDispose {
             holder.webView?.let { view ->
-                view.stopLoading()
-                view.destroy()
+                runCatching {
+                    view.stopLoading()
+                    (view.parent as? ViewGroup)?.removeView(view)
+                    view.destroy()
+                }
             }
             holder.webView = null
         }

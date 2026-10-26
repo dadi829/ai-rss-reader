@@ -52,5 +52,25 @@ Kotlin + Jetpack Compose + Room + MVVM，单 Activity + Navigation Compose，纯
 - 交付：APK 已通过企业微信发给用户
 - 未完成：GitHub 仓库尚未创建（缺凭据）；CI 工作流与 `scripts/publish_github.py` 已写好待用
 
-本工作区（android-course-design-2）尚未开始，需求待用户提供。
-拿到需求后：先确认题目 / App 名 / 页面清单 / 数据来源 / 核心亮点功能 / UI 参考，再动手。
+### 本项目「AI 资讯 RSS 阅读器」已完成
+
+- 包名 `com.example.airssreader`，App 名「AI资讯RSS」，minSdk 26 / target 35
+- 编译通过（零警告），APK 17MB：`dist/AI资讯RSS阅读器-v1.0-debug.apk`
+- 代码已 git init 并提交（main 分支，1 个 commit）
+- **未做真机验证**：本机没有模拟器（SDK 无 emulator 组件）也没连设备，只做了静态验证
+
+### 与原始提示词的偏离（用户确认过）
+
+1. 保留了下拉刷新，切源只读缓存不联网——原提示词把「手动触发」写死成只有刷新按钮
+2. 加了已读标记 + 未读数 + 全部已读
+3. 预置源替换了两个：机器之心 RSS 已下线（302 到网页）、The Batch `/rss` 返回 404，
+   换成 InfoQ AI 与 Google AI Blog；arXiv 改用 `export.arxiv.org` 直连地址
+4. 预置源从 5 个变 6 个（加 MIT Tech Review AI）
+
+### 下次注意
+
+- rssparser 6.0.4 的 API 是 `RssParserBuilder(client, Charsets.UTF_8).build()` + `getRssChannel()`，
+  不是老版本的 `Parser.Builder()`；`RssChannel`/`RssItem` 是模型类名
+- 五个源的实际 pubDate 全是 RFC 1123 变体，`DateTimeFormatter.RFC_1123_DATE_TIME` 全覆盖
+- arXiv 单次返回 321 条，已在 `RssMapper.MAX_ITEMS_PER_FETCH` 限制为 60
+
